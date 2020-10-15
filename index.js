@@ -1,89 +1,65 @@
 const express = require("express");
 const app = express();
 const path = require("path");
+const port = 3000;
+const mongoose = require("mongoose");
 const methodOverride = require("method-override");
-const { v4: uuid } = require("uuid");
+const Product = require("./models/product");
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(methodOverride("_method"));
+mongoose
+	.connect("mongodb://localhost:27017/farmStand", { useNewUrlParser: true, useUnifiedTopology: true })
+	.then(() => {
+		console.log("MONGO CONNECTED");
+	})
+	.catch((err) => {
+		console.log("MONGO CONNNECTION ERROR");
+		console.log(err);
+	});
+
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
+app.use(express.urlencoded({ extended: true }));
+app.use(methodOverride("_method"));
 
-let comments = [
-	{
-		id: uuid(),
-		username: "Todd",
-		comment: "lol that is so funny"
-	},
-	{
-		id: uuid(),
-		username: "Skylar",
-		comment: "Hi I am skylar"
-	},
-	{
-		id: uuid(),
-		username: "memelord",
-		comment: "ur bad"
-	},
-	{
-		id: uuid(),
-		username: "dogbot",
-		comment: "woof woof woof"
-	}
-];
-
-app.get("/comments", (req, res) => {
-	res.render("comments/index", { comments });
+app.get("/products", async (req, res) => {
+	const products = await Product.find({});
+	res.render("products/index", { products });
 });
 
-app.get("/comments/new", (req, res) => {
-	res.render("comments/new");
+app.get("/products/new", (req, res) => {
+	res.render("products/new");
 });
 
-app.post("/comments", (req, res) => {
-	const { username, comment } = req.body;
-	comments.push({ id: uuid(), username, comment });
-	res.redirect("/comments");
-	console.log(comments);
+app.post("/products", async (req, res) => {
+	const newProduct = new Product(req.body);
+	await newProduct.save();
+	res.redirect(`/products/${newProduct._id}`);
 });
 
-app.get("/comments/:id", (req, res) => {
+app.get("/products/:id", async (req, res) => {
 	const { id } = req.params;
-	const comment = comments.find((c) => c.id === id);
-	res.render("comments/show", { comment });
+	const product = await Product.findById(id);
+	res.render("products/show", { product });
 });
 
-app.get("/comments/:id/edit", (req, res) => {
+app.get("/products/:id/edit", async (req, res) => {
 	const { id } = req.params;
-	const comment = comments.find((c) => c.id === id);
-	res.render("comments/edit", { comment });
+	const product = await Product.findById(id);
+	res.render("products/edit", { product });
 });
 
-app.patch("/comments/:id", (req, res) => {
+app.put("/products/:id", async (req, res) => {
 	const { id } = req.params;
-	const newCommentText = req.body.comment;
-	const foundComment = comments.find((c) => c.id === id);
-	foundComment.comment = newCommentText;
-	res.redirect("/comments");
-	console.log(req.params);
+	const product = await Product.findByIdAndUpdate(id, req.body, { runValidators: true, new: true });
+	res.redirect(`/products/${product._id}`);
 });
 
-app.delete("/comments/:id", (req, res) => {
+app.delete("/products/:id", async (req, res) => {
 	const { id } = req.params;
-	comments = comments.filter((c) => c.id !== id);
-	res.redirect("/comments");
+	const deletedProduct = await Product.findByIdAndDelete(id, req.body);
+	res.redirect("/products");
 });
 
-app.get("/tacos", (req, res) => {
-	res.send("GET /TACOS RESPONSE");
-});
-
-app.post("/tacos", (req, res) => {
-	const { meat, qty } = req.body;
-	res.send(`OK here are your ${qty} ${meat} tacos`);
-});
-
-app.listen(3000, () => {
-	console.log("LISTENING ON PORT 3000");
+app.listen(port, () => {
+	console.log(`LISTENING ON PORT ${port}`);
 });
